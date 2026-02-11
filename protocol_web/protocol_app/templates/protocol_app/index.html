@@ -1,0 +1,133 @@
+{% extends 'protocol_app/base.html' %}
+
+{% block title %}Главная - Система управления протоколами{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12 text-center mb-5">
+            <h1 class="display-4">Система управления протоколами ПЭЛ/АИ</h1>
+            <p class="lead">Загрузка, поиск и анализ протоколов измерений</p>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Всего протоколов</h5>
+                    <h2 class="display-4">{{ total_protocols }}</h2>
+                    <i class="fas fa-file-alt fa-2x"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">ПЭЛ</h5>
+                    <h2 class="display-4">{{ pel_count }}</h2>
+                    <i class="fas fa-microscope fa-2x"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-body text-center">
+                    <h5 class="card-title">АИ</h5>
+                    <h2 class="display-4">{{ ai_count }}</h2>
+                    <i class="fas fa-chart-line fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0"><i class="fas fa-upload"></i> Загрузка протоколов</h5>
+                </div>
+                <div class="card-body">
+                    <p>Загрузите файлы протоколов в формате .docx для автоматического парсинга и сохранения в базу данных.</p>
+                    <a href="{% url 'protocol_app:upload_protocols' %}" class="btn btn-success">
+                        <i class="fas fa-upload"></i> Загрузить файлы
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0"><i class="fas fa-search"></i> Поиск протоколов</h5>
+                </div>
+                <div class="card-body">
+                    <p>Поиск протоколов по номеру, дате, округу, району и другим параметрам.</p>
+                    <a href="{% url 'protocol_app:search_protocols' %}" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Перейти к поиску
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0"><i class="fas fa-clock"></i> Последние добавленные протоколы</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Номер протокола</th>
+                                    <th>Дата</th>
+                                    <th>Тип</th>
+                                    <th>Округ</th>
+                                    <th>Район</th>
+                                    <th>Дата добавления</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for protocol in recent_protocols %}
+                                <tr>
+                                    <td>{{ protocol.number_protocol }}</td>
+                                    <td>{{ protocol.date_protocol }}</td>
+                                    <td>
+                                        {% if 'pel' in protocol.type_protocol %}
+                                            <span class="badge bg-success">ПЭЛ</span>
+                                        {% else %}
+                                            <span class="badge bg-info">АИ</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ protocol.okrug }}</td>
+                                    <td>{{ protocol.region }}</td>
+                                    <td>{{ protocol.created_at|date:"d.m.Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'protocol_app:protocol_detail' protocol.id %}" 
+                                           class="btn btn-sm btn-info" title="Просмотр">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'protocol_app:export_single_protocol' protocol.id %}" 
+                                           class="btn btn-sm btn-success" title="Экспорт в Excel">
+                                            <i class="fas fa-file-excel"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center">Нет добавленных протоколов</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

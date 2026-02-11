@@ -1,0 +1,204 @@
+{% extends 'protocol_app/base.html' %}
+
+{% block title %}Поиск протоколов{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-search"></i> Поиск протоколов</h4>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="{{ form.number_protocol.id_for_label }}" class="form-label">
+                                {{ form.number_protocol.label }}
+                            </label>
+                            {{ form.number_protocol }}
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="{{ form.date_from.id_for_label }}" class="form-label">
+                                {{ form.date_from.label }}
+                            </label>
+                            {{ form.date_from }}
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="{{ form.date_to.id_for_label }}" class="form-label">
+                                {{ form.date_to.label }}
+                            </label>
+                            {{ form.date_to }}
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="{{ form.okrug.id_for_label }}" class="form-label">
+                                {{ form.okrug.label }}
+                            </label>
+                            {{ form.okrug }}
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="{{ form.type_protocol.id_for_label }}" class="form-label">
+                                {{ form.type_protocol.label }}
+                            </label>
+                            {{ form.type_protocol }}
+                        </div>
+                        
+                        <div class="col-12 mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Найти
+                            </button>
+                            <a href="{% url 'protocol_app:search_protocols' %}" class="btn btn-secondary">
+                                <i class="fas fa-undo"></i> Сбросить
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Результаты поиска</h5>
+                    <span class="badge bg-light text-dark">Найдено: {{ total_count }}</span>
+                </div>
+                <div class="card-body">
+                    {% if page_obj %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped">
+                            <thead>
+                                <tr>
+                                    <th>№ протокола</th>
+                                    <th>Дата</th>
+                                    <th>Тип</th>
+                                    <th>Округ</th>
+                                    <th>Район</th>
+                                    <th>Территория</th>
+                                    <th>Дата измерения</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for protocol in page_obj %}
+                                <tr>
+                                    <td>{{ protocol.number_protocol }}</td>
+                                    <td>{{ protocol.date_protocol }}</td>
+                                    <td>
+                                        {% if 'pel' in protocol.type_protocol %}
+                                            <span class="badge bg-success">ПЭЛ</span>
+                                        {% else %}
+                                            <span class="badge bg-info">АИ</span>
+                                        {% endif %}
+                                        {% if 'uniq' in protocol.type_protocol %}
+                                            <span class="badge bg-warning">Уник</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Доп</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ protocol.okrug }}</td>
+                                    <td>{{ protocol.region }}</td>
+                                    <td>{{ protocol.nazvanie_territorii|truncatechars:30 }}</td>
+                                    <td>{{ protocol.data_izmereniya }}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'protocol_app:protocol_detail' protocol.id %}" 
+                                               class="btn btn-sm btn-info" title="Просмотр">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'protocol_app:export_single_protocol' protocol.id %}" 
+                                               class="btn btn-sm btn-success" title="Экспорт в Excel">
+                                                <i class="fas fa-file-excel"></i>
+                                            </a>
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-danger" 
+                                                    title="Удалить"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#deleteModal{{ protocol.id }}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Modal для удаления -->
+                                        <div class="modal fade" id="deleteModal{{ protocol.id }}" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Подтверждение удаления</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>Вы уверены, что хотите удалить протокол №{{ protocol.number_protocol }}?</p>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                        <form method="post" action="{% url 'protocol_app:delete_protocol' protocol.id %}" style="display: inline;">
+                                                            {% csrf_token %}
+                                                            <button type="submit" class="btn btn-danger">Удалить</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Пагинация -->
+                    {% if page_obj.paginator.num_pages > 1 %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center mt-4">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% for key, value in query_params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="First">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in query_params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% for key, value in query_params.items %}&{{ key }}={{ value }}{% endfor %}">{{ num }}</a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in query_params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in query_params.items %}&{{ key }}={{ value }}{% endfor %}" aria-label="Last">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> По вашему запросу ничего не найдено
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

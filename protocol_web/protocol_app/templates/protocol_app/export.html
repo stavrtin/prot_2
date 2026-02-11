@@ -1,0 +1,323 @@
+{% extends 'protocol_app/base.html' %}
+{% load static %}
+
+{% block title %}Экспорт протоколов{% endblock %}
+
+{% block extra_css %}
+<style>
+    .log-container {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        border: 1px solid #dee2e6;
+        max-height: 200px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+    }
+
+    .log-message {
+        padding: 3px 0;
+        border-bottom: 1px solid #eee;
+        color: #495057;
+    }
+
+    .log-success {
+        color: #28a745;
+    }
+
+    .log-error {
+        color: #dc3545;
+    }
+
+    .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+
+    .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #28a745;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .export-stats {
+        margin-top: 15px;
+        padding: 10px;
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        border-radius: 5px;
+        color: #155724;
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fas fa-file-export"></i> Экспорт протоколов в Excel</h4>
+                </div>
+                <div class="card-body">
+                    <form id="exportForm" method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">{{ form.export_format.label }}</label>
+                            <div class="ms-3">
+                                {% for radio in form.export_format %}
+                                <div class="form-check">
+                                    {{ radio.tag }}
+                                    <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                        {{ radio.choice_label }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                {{ form.include_all }}
+                                <label class="form-check-label fw-bold" for="{{ form.include_all.id_for_label }}">
+                                    {{ form.include_all.label }}
+                                </label>
+                            </div>
+                            <div class="form-text ms-4">
+                                Отметьте для экспорта всех протоколов, или снимите отметку для экспорта одного протокола
+                            </div>
+                        </div>
+
+                        <div class="mb-4" id="single_protocol_field">
+                            <label for="{{ form.number_protocol.id_for_label }}" class="form-label fw-bold">
+                                {{ form.number_protocol.label }}
+                            </label>
+                            {{ form.number_protocol }}
+                            <div class="form-text">
+                                Введите точный номер протокола для экспорта одной записи (например: 2341-В/25)
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-database"></i>
+                                Всего записей в базе: <strong>{{ total_count }}</strong>
+                            </div>
+                            <span class="badge bg-success">Excel</span>
+                        </div>
+
+                        <!-- Контейнер для логов -->
+                        <div class="log-container" id="logContainer">
+                            <div class="text-muted" id="logMessages">
+                                Готов к экспорту...
+                            </div>
+                        </div>
+
+                        <!-- Индикатор загрузки -->
+                        <div class="loading" id="loading">
+                            <div class="spinner"></div>
+                            <p class="text-muted">Формирование Excel файла...</p>
+                        </div>
+
+                        <!-- Статистика экспорта -->
+                        <div class="export-stats" id="exportStats"></div>
+
+                        <div class="d-grid gap-2 mt-3">
+                            <button type="button" id="exportBtn" class="btn btn-success btn-lg">
+                                <i class="fas fa-download"></i> Экспортировать
+                            </button>
+                            <a href="{% url 'protocol_app:index' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Назад
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const includeAllCheckbox = document.getElementById('{{ form.include_all.id_for_label }}');
+    const singleProtocolField = document.getElementById('single_protocol_field');
+    const protocolInput = document.getElementById('{{ form.number_protocol.id_for_label }}');
+    const exportBtn = document.getElementById('exportBtn');
+    const logMessages = document.getElementById('logMessages');
+    const loading = document.getElementById('loading');
+    const exportStats = document.getElementById('exportStats');
+
+    // Функция добавления сообщения в лог
+    function addLogMessage(message, type = 'info') {
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-message';
+
+        if (type === 'success') {
+            logEntry.classList.add('log-success');
+        } else if (type === 'error') {
+            logEntry.classList.add('log-error');
+        }
+
+        const timestamp = new Date().toLocaleTimeString('ru-RU', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        logEntry.textContent = `[${timestamp}] ${message}`;
+        logMessages.appendChild(logEntry);
+
+        // Прокручиваем лог вниз
+        const logContainer = document.getElementById('logContainer');
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    // Функция очистки лога
+    function clearLog() {
+        logMessages.innerHTML = '';
+    }
+
+    // Показываем/скрываем поле для одного протокола
+    function toggleSingleProtocolField() {
+        if (includeAllCheckbox.checked) {
+            singleProtocolField.style.display = 'none';
+            protocolInput.disabled = true;
+            protocolInput.required = false;
+        } else {
+            singleProtocolField.style.display = 'block';
+            protocolInput.disabled = false;
+            protocolInput.required = true;
+        }
+    }
+
+    // Инициализация
+    toggleSingleProtocolField();
+
+    // Слушатель изменения чекбокса
+    includeAllCheckbox.addEventListener('change', toggleSingleProtocolField);
+
+    // Обработчик кнопки экспорта
+    exportBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+
+        // Валидация
+        if (!includeAllCheckbox.checked && !protocolInput.value.trim()) {
+            addLogMessage('ОШИБКА: Введите номер протокола для экспорта', 'error');
+            protocolInput.classList.add('is-invalid');
+            return;
+        }
+
+        protocolInput.classList.remove('is-invalid');
+
+        // Очищаем лог
+        clearLog();
+
+        // Блокируем кнопку и показываем загрузку
+        exportBtn.disabled = true;
+        loading.style.display = 'block';
+        exportStats.style.display = 'none';
+
+        // Добавляем начальное сообщение
+        if (includeAllCheckbox.checked) {
+            addLogMessage('Подготовка выгрузки всех протоколов в Excel...');
+        } else {
+            addLogMessage(`Подготовка выгрузки протокола №${protocolInput.value.trim()} в Excel...`);
+        }
+
+        // Создаем FormData
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        formData.append('include_all', includeAllCheckbox.checked ? 'on' : 'off');
+        formData.append('number_protocol', protocolInput.value.trim());
+
+        // Отправляем запрос
+        fetch('{% url "protocol_app:export_to_excel" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Создаем ссылку для скачивания
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = blob.name || 'protocols_export.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            // Получаем количество записей (можно передать через заголовки или изменить API)
+            addLogMessage('✓ Данные успешно выгружены в Excel', 'success');
+
+            if (includeAllCheckbox.checked) {
+                addLogMessage('  Экспортированы все протоколы', 'success');
+            } else {
+                addLogMessage(`  Экспортирован протокол №${protocolInput.value.trim()}`, 'success');
+            }
+
+            // Показываем статистику
+            exportStats.style.display = 'block';
+            exportStats.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                <strong>Экспорт выполнен успешно!</strong><br>
+                <small class="text-muted">
+                    Файл: ${a.download}<br>
+                    Время: ${new Date().toLocaleString('ru-RU')}
+                </small>
+            `;
+        })
+        .catch(error => {
+            addLogMessage(`ОШИБКА: ${error.message}`, 'error');
+
+            // Показываем ошибку в статистике
+            exportStats.style.display = 'block';
+            exportStats.className = 'export-stats bg-danger text-white';
+            exportStats.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i>
+                <strong>Ошибка экспорта!</strong><br>
+                <small>${error.message}</small>
+            `;
+        })
+        .finally(() => {
+            exportBtn.disabled = false;
+            loading.style.display = 'none';
+
+            // Возвращаем нормальный класс для статистики через 3 секунды
+            setTimeout(() => {
+                exportStats.className = 'export-stats';
+            }, 3000);
+        });
+    });
+
+    // Обработка Enter в поле ввода
+    protocolInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            exportBtn.click();
+        }
+    });
+});
+</script>
+{% endblock %}

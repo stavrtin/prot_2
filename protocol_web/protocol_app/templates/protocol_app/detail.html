@@ -1,0 +1,161 @@
+{% extends 'protocol_app/base.html' %}
+
+{% block title %}Протокол №{{ protocol.number_protocol }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="fas fa-file-alt"></i> Протокол №{{ protocol.number_protocol }}</h4>
+                    <div>
+                        <a href="{% url 'protocol_app:export_single_protocol' protocol.id %}" 
+                           class="btn btn-success btn-sm">
+                            <i class="fas fa-file-excel"></i> Экспорт в Excel
+                        </a>
+                        <a href="{% url 'protocol_app:search_protocols' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left"></i> Назад
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">Основная информация</h5>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th style="width: 40%">Номер протокола:</th>
+                                            <td>{{ protocol.number_protocol }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Дата протокола:</th>
+                                            <td>{{ protocol.date_protocol }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Тип протокола:</th>
+                                            <td>
+                                                {% if 'pel' in protocol.type_protocol %}
+                                                    <span class="badge bg-success">ПЭЛ</span>
+                                                {% else %}
+                                                    <span class="badge bg-info">АИ</span>
+                                                {% endif %}
+                                                {% if 'uniq' in protocol.type_protocol %}
+                                                    <span class="badge bg-warning">Уникальный</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Дополнительный</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Рейд на источник:</th>
+                                            <td>{{ protocol.rejd_na_istochnik }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">Адрес и время</h5>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <th style="width: 40%">Округ:</th>
+                                            <td>{{ protocol.okrug }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Район:</th>
+                                            <td>{{ protocol.region }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Территория:</th>
+                                            <td>{{ protocol.nazvanie_territorii }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Дата измерения:</th>
+                                            <td>{{ protocol.data_izmereniya }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Время начала:</th>
+                                            <td>{{ protocol.time_start_izmereniya }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Время окончания:</th>
+                                            <td>{{ protocol.time_end_izmereniya }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">Результаты измерений</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped">
+                                            <thead class="table-success">
+                                                <tr>
+                                                    <th>Показатель</th>
+                                                    <th>Значение</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for field in protocol._meta.fields %}
+                                                    {% if field.name not in 'id,rejd_na_istochnik,number_protocol,date_protocol,okrug,region,nazvanie_territorii,data_izmereniya,time_start_izmereniya,time_end_izmereniya,type_protocol,created_at,updated_at' %}
+                                                        {% with value=protocol|get_attr:field.name %}
+                                                            {% if value and value != '-' and value != 'None' %}
+                                                            <tr>
+                                                                <td>{{ field.verbose_name }}</td>
+                                                                <td>{{ value }}</td>
+                                                            </tr>
+                                                            {% endif %}
+                                                        {% endwith %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <div class="alert alert-secondary">
+                                <small>
+                                    <i class="fas fa-clock"></i> Создан: {{ protocol.created_at|date:"d.m.Y H:i:s" }}<br>
+                                    <i class="fas fa-pencil-alt"></i> Обновлен: {{ protocol.updated_at|date:"d.m.Y H:i:s" }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Фильтр для получения атрибута объекта
+$(document).ready(function() {
+    // Добавляем фильтр для шаблона
+    var protocol = {{ protocol|safe }};
+});
+</script>
+{% endblock %}
